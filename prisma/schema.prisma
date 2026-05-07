@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum ContentType {
+  PDF
+  TEXT
+  BOTH
+}
+
+enum LectureCategory {
+  LECTURE
+  EXAM_QUESTIONS
+  GOLDEN_PAPER
+  SUMMARY
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  SHORT_ANSWER
+}
+
+model User {
+  id              String    @id @default(uuid())
+  full_name       String
+  university_id   String?   @unique
+  access_code     String?   @unique
+  password        String?
+  role            Role      @default(STUDENT)
+  is_active       Boolean   @default(false)
+  is_pending      Boolean   @default(true)
+  device_id       String?
+  expires_at      DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  subject_access UserSubjectAccess[]
+  quiz_attempts  QuizAttempt[]
+
+  @@map("users")
+}
+
+model Department {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  order_num   Int     @default(0)
+
+  years AcademicYear[]
+
+  @@map("departments")
+}
+
+model AcademicYear {
+  id            Int    @id @default(autoincrement())
+  department_id Int
+  name          String
+  order_num     Int
+
+  department Department @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  semesters  Semester[]
+
+  @@map("academic_years")
+}
+
+model Semester {
+  id        Int    @id @default(autoincrement())
+  year_id   Int
+  name      String
+  order_num Int
+
+  year     AcademicYear @relation(fields: [year_id], references: [id], onDelete: Cascade)
+  subjects Subject[]
+
+  @@map("semesters")
+}
+
+model Subject {
+  id              Int     @id @default(autoincrement())
+  semester_id     Int
+  name            String
+  description     String?
+  cover_image     String?
+  notebook_ai_url String?
+
+  semester       Semester           @relation(fields: [semester_id], references: [id], onDelete: Cascade)
+  lectures       Lecture[]
+  student_access UserSubjectAccess[]
+
+  @@map("subjects")
+}
+
+model Lecture {
+  id              Int             @id @default(autoincrement())
+  subject_id      Int
+  title           String
+  content_type    ContentType
+  category          LectureCategory @default(LECTURE)
+  pdf_url           String?
+  text_content      String?
+  explanation_pdf   String?
+  explanation_text  String?
+  notebook_ai_url   String?
+  order_num         Int
+
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  quizzes Quiz[]
+
+  @@map("lectures")
+}
+
+model Quiz {
+  id          Int     @id @default(autoincrement())
+  lecture_id  Int
+  title       String
+  description String?
+
+  lecture   Lecture       @relation(fields: [lecture_id], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            Int          @id @default(autoincrement())
+  quiz_id       Int
+  question_text String
+  question_type QuestionType
+  explanation   String?
+  points        Int          @default(1)
+  order_num     Int
+
+  quiz    Quiz         @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  options QuizOption[]
+  answers QuizAnswer[]
+
+  @@map("quiz_questions")
+}
+
+model QuizOption {
+  id          Int     @id @default(autoincrement())
+  question_id Int
+  option_text String
+  is_correct  Boolean @default(false)
+
+  question        QuizQuestion @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  selected_answers QuizAnswer[]
+
+  @@map("quiz_options")
+}
+
+model UserSubjectAccess {
+  id         Int       @id @default(autoincrement())
+  user_id    String
+  subject_id Int
+  granted_at DateTime  @default(now())
+  expires_at DateTime?
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, subject_id])
+  @@map("user_subject_access")
+}
+
+model QuizAttempt {
+  id           Int      @id @default(autoincrement())
+  user_id      String
+  quiz_id      Int
+  score        Int
+  total_points Int
+  completed_at DateTime @default(now())
+
+  user    User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  quiz    Quiz       @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id                 Int     @id @default(autoincrement())
+  attempt_id         Int
+  question_id        Int
+  selected_option_id Int?
+  answer_text        String?
+  is_correct         Boolean
+
+  attempt         QuizAttempt  @relation(fields: [attempt_id], references: [id], onDelete: Cascade)
+  question        QuizQuestion @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  selected_option QuizOption?  @relation(fields: [selected_option_id], references: [id])
+
+  @@map("quiz_answers")
+}
