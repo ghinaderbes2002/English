@@ -14,7 +14,7 @@
     "docker:logs": "docker compose logs -f app",
     "docker:rebuild": "docker compose up -d --build",
     "docker:seed": "docker compose exec app node prisma/seed.js",
-    "docker:db:shell": "docker compose exec db psql -U postgres -d lectures_db"
+    "docker:db:shell": "docker compose exec postgres psql -U postgres -d english"
   },
   "keywords": [],
   "author": "",

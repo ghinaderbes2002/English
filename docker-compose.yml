@@ -1,12 +1,12 @@
 services:
-  db:
+  postgres:
     image: postgres:16-alpine
-    container_name: lectures_db
+    container_name: postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-lectures_db}
+      POSTGRES_DB: ${DB_NAME:-english}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -26,10 +26,10 @@ services:
     container_name: lectures_app
     restart: unless-stopped
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-lectures_db}?schema=public
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-english}?schema=public
       PORT: 3000
       NODE_ENV: production
       JWT_SECRET: ${JWT_SECRET}

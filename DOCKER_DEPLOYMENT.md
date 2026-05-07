@@ -143,7 +143,7 @@ docker compose restart app
 | إعادة build بعد تعديل الكود | `docker compose up -d --build` |
 | متابعة logs | `docker compose logs -f app` |
 | تشغيل seed يدوياً | `docker compose exec app node prisma/seed.js` |
-| دخول psql | `docker compose exec db psql -U postgres -d lectures_db` |
+| دخول psql | `docker compose exec postgres psql -U postgres -d english` |
 | دخول shell الـ container | `docker compose exec app sh` |
 | حذف كل شي مع البيانات | `docker compose down -v` ⚠️ |
 
@@ -172,13 +172,13 @@ npm run docker:seed
 ### Backup قاعدة البيانات
 
 ```bash
-docker compose exec db pg_dump -U postgres lectures_db > backup_$(date +%F).sql
+docker compose exec postgres pg_dump -U postgres english > backup_$(date +%F).sql
 ```
 
 ### استعادة قاعدة البيانات
 
 ```bash
-cat backup.sql | docker compose exec -T db psql -U postgres -d lectures_db
+cat backup.sql | docker compose exec -T db psql -U postgres -d english
 ```
 
 ### Backup الملفات المرفوعة
