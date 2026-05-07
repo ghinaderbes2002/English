@@ -9,8 +9,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-english}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DB_HOST_PORT:-5433}:5432"
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
