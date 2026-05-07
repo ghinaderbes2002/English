@@ -19,7 +19,7 @@ const getClient = () => {
 exports.askAboutLecture = async (lecture, question) => {
   const client = getClient();
   const model = client.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     systemInstruction: buildSystemPrompt(lecture),
   });
 
