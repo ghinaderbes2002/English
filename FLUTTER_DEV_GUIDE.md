@@ -349,6 +349,64 @@ GET /api/student/lectures/:lectureId
 
 ---
 
+### 11.1 شات الـ AI للمحاضرة (جديد)
+
+كل محاضرة فيها زر شات. الطالب عندو **3 أسئلة كحد أقصى** لكل محاضرة.
+
+**أ. جلب الحالة (الأسئلة المتبقية):**
+
+```
+GET /api/student/lectures/:lectureId/chat/usage
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": { "used": 1, "remaining": 2, "limit": 3 }
+}
+```
+
+> اعرض هذا في الـ UI: "تبقى لك 2 من 3 أسئلة"
+
+---
+
+**ب. إرسال سؤال:**
+
+```
+POST /api/student/lectures/:lectureId/chat
+```
+
+**Body:**
+```json
+{ "question": "ما الفرق بين noun و pronoun؟" }
+```
+
+**Response ناجح (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "answer": "الـ noun هو اسم لشخص أو مكان أو شيء (مثل: book, teacher)، أما الـ pronoun فهو ضمير يحل محل الـ noun (مثل: he, she, it).",
+    "remaining": 1
+  }
+}
+```
+
+**Response عند تجاوز الحد (403):**
+```json
+{ "success": false, "message": "وصلت للحد الأقصى من الأسئلة (3)" }
+```
+
+**Response عند خطأ AI (502):**
+```json
+{ "success": false, "message": "تعذّر الحصول على إجابة من الذكاء الاصطناعي حالياً" }
+```
+
+> **مهم**: العداد يزداد فقط عند **نجاح** الإجابة. لو فشل الـ AI، الطالب ما يخسر سؤال.
+
+---
+
 ### 12. عرض الكويز (بدون إجابات صحيحة)
 
 ```

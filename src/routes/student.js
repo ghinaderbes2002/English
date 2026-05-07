@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { authenticate, requireStudent } = require('../middleware/auth');
 const student = require('../controllers/studentController');
 const quiz = require('../controllers/quizController');
+const chat = require('../controllers/chatController');
 
 router.use(authenticate, requireStudent);
 
@@ -17,6 +18,10 @@ router.get('/subjects/:subjectId/quizzes', student.getSubjectQuizzes);
 
 // المحاضرة والكويز
 router.get('/lectures/:lectureId', student.getLecture);
+
+// شات AI للمحاضرة
+router.get('/lectures/:lectureId/chat/usage', chat.getUsage);
+router.post('/lectures/:lectureId/chat', chat.askQuestion);
 router.get('/quizzes/:quizId', quiz.getQuiz);
 router.post('/quizzes/:quizId/submit', quiz.submitQuiz);
 

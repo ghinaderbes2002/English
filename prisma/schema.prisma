@@ -47,6 +47,7 @@ model User {
 
   subject_access UserSubjectAccess[]
   quiz_attempts  QuizAttempt[]
+  chat_usage     LectureChatUsage[]
 
   @@map("users")
 }
@@ -114,8 +115,9 @@ model Lecture {
   notebook_ai_url   String?
   order_num         Int
 
-  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
-  quizzes Quiz[]
+  subject    Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  quizzes    Quiz[]
+  chat_usage LectureChatUsage[]
 
   @@map("lectures")
 }
@@ -203,4 +205,19 @@ model QuizAnswer {
   selected_option QuizOption?  @relation(fields: [selected_option_id], references: [id])
 
   @@map("quiz_answers")
+}
+
+model LectureChatUsage {
+  id         Int      @id @default(autoincrement())
+  student_id String
+  lecture_id Int
+  count      Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  student User    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lecture_id], references: [id], onDelete: Cascade)
+
+  @@unique([student_id, lecture_id])
+  @@map("lecture_chat_usage")
 }
