@@ -7,6 +7,7 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-english}
+      TZ: ${TZ:-Asia/Damascus}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     expose:
@@ -40,6 +41,7 @@ services:
       RUN_SEED: ${RUN_SEED:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       CHAT_LIMIT_PER_LECTURE: ${CHAT_LIMIT_PER_LECTURE:-3}
+      TZ: ${TZ:-Asia/Damascus}
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:

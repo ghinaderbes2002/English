@@ -208,12 +208,13 @@ model QuizAnswer {
 }
 
 model LectureChatUsage {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   student_id String
   lecture_id Int
-  count      Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  count      Int       @default(0)
+  count_date DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
 
   student User    @relation(fields: [student_id], references: [id], onDelete: Cascade)
   lecture Lecture @relation(fields: [lecture_id], references: [id], onDelete: Cascade)

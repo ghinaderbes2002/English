@@ -4,6 +4,23 @@ const { askAboutLecture } = require('../services/aiService');
 
 const QUESTION_LIMIT = parseInt(process.env.CHAT_LIMIT_PER_LECTURE || '3', 10);
 
+// هل التاريخ هو اليوم (نفس السنة + الشهر + اليوم بتوقيت السيرفر)؟
+const isToday = (date) => {
+  if (!date) return false;
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+};
+
+// كم سؤال استخدم الطالب اليوم لهذه المحاضرة
+const usedToday = (usage) => {
+  if (!usage) return 0;
+  return isToday(usage.count_date) ? usage.count : 0;
+};
+
 // تأكد من صلاحية الطالب لرؤية محاضرة معينة، وأرجعها مع المادة
 const loadLectureWithAccessCheck = async (userId, lectureId) => {
   const lecture = await prisma.lecture.findUnique({
@@ -35,7 +52,7 @@ exports.getUsage = asyncHandler(async (req, res) => {
     where: { student_id_lecture_id: { student_id: userId, lecture_id: lecture.id } },
   });
 
-  const used = usage?.count ?? 0;
+  const used = usedToday(usage);
   res.json({
     success: true,
     data: { used, remaining: Math.max(0, QUESTION_LIMIT - used), limit: QUESTION_LIMIT },
@@ -62,11 +79,12 @@ exports.askQuestion = asyncHandler(async (req, res) => {
   const existing = await prisma.lectureChatUsage.findUnique({
     where: { student_id_lecture_id: { student_id: userId, lecture_id: lecture.id } },
   });
-  const currentCount = existing?.count ?? 0;
+  const sameDay = existing && isToday(existing.count_date);
+  const currentCount = sameDay ? existing.count : 0;
   if (currentCount >= QUESTION_LIMIT) {
     return res.status(403).json({
       success: false,
-      message: `وصلت للحد الأقصى من الأسئلة (${QUESTION_LIMIT})`,
+      message: `وصلت للحد الأقصى من الأسئلة لليوم (${QUESTION_LIMIT}). تتجدد عند منتصف الليل.`,
     });
   }
 
@@ -84,10 +102,15 @@ exports.askQuestion = asyncHandler(async (req, res) => {
   }
 
   // زِد العداد بعد نجاح الإجابة فقط
+  // - لو نفس اليوم: نزيد بـ 1
+  // - لو يوم جديد: نعيد العداد إلى 1 ونحدّث count_date
+  const now = new Date();
   const updated = await prisma.lectureChatUsage.upsert({
     where: { student_id_lecture_id: { student_id: userId, lecture_id: lecture.id } },
-    update: { count: { increment: 1 } },
-    create: { student_id: userId, lecture_id: lecture.id, count: 1 },
+    update: sameDay
+      ? { count: { increment: 1 } }
+      : { count: 1, count_date: now },
+    create: { student_id: userId, lecture_id: lecture.id, count: 1, count_date: now },
   });
 
   res.json({

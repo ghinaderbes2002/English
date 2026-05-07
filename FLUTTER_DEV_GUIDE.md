@@ -351,7 +351,7 @@ GET /api/student/lectures/:lectureId
 
 ### 11.1 شات الـ AI للمحاضرة (جديد)
 
-كل محاضرة فيها زر شات. الطالب عندو **3 أسئلة كحد أقصى** لكل محاضرة.
+كل محاضرة فيها زر شات. الطالب عندو **3 أسئلة كحد أقصى لكل محاضرة باليوم** (تتجدد عند منتصف الليل).
 
 **أ. جلب الحالة (الأسئلة المتبقية):**
 
@@ -395,7 +395,7 @@ POST /api/student/lectures/:lectureId/chat
 
 **Response عند تجاوز الحد (403):**
 ```json
-{ "success": false, "message": "وصلت للحد الأقصى من الأسئلة (3)" }
+{ "success": false, "message": "وصلت للحد الأقصى من الأسئلة لليوم (3). تتجدد عند منتصف الليل." }
 ```
 
 **Response عند خطأ AI (502):**
@@ -404,6 +404,56 @@ POST /api/student/lectures/:lectureId/chat
 ```
 
 > **مهم**: العداد يزداد فقط عند **نجاح** الإجابة. لو فشل الـ AI، الطالب ما يخسر سؤال.
+
+#### مثال خدمة Dart للشات
+
+```dart
+class ChatService {
+  final String baseUrl = 'http://217.76.53.136:3015';
+  final String token; // JWT
+  ChatService(this.token);
+
+  Map<String, String> get _headers => {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token',
+  };
+
+  // جلب الحالة قبل فتح الشات
+  Future<ChatUsage> getUsage(int lectureId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/api/student/lectures/$lectureId/chat/usage'),
+      headers: _headers,
+    );
+    final body = jsonDecode(res.body);
+    if (res.statusCode != 200) throw Exception(body['message']);
+    final d = body['data'];
+    return ChatUsage(used: d['used'], remaining: d['remaining'], limit: d['limit']);
+  }
+
+  // إرسال سؤال
+  Future<ChatAnswer> ask(int lectureId, String question) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/student/lectures/$lectureId/chat'),
+      headers: _headers,
+      body: jsonEncode({'question': question}),
+    );
+    final body = jsonDecode(res.body);
+    if (res.statusCode == 403) throw LimitReachedException(body['message']);
+    if (res.statusCode == 502) throw AiUnavailableException(body['message']);
+    if (res.statusCode != 200) throw Exception(body['message']);
+    final d = body['data'];
+    return ChatAnswer(answer: d['answer'], remaining: d['remaining']);
+  }
+}
+```
+
+#### نصائح UX
+
+- اعرض العداد بوضوح: `2 من 3 متبقية`
+- لمّا الـ remaining = 0: عطّل مربع الإرسال + اعرض رسالة "استنفدت أسئلتك لليوم — تتجدد منتصف الليل"
+- لمّا الـ AI ما رد (502): اعرض زر "حاول مرة أخرى" — العداد ما ينقص في هاي الحالة
+- اعرض indicator أثناء انتظار الرد (الـ AI ممكن ياخد 2-5 ثواني)
+- خزّن المحادثة محلياً (في الذاكرة فقط، مش persistent) عشان الطالب يشوف الأسئلة السابقة في نفس الجلسة
 
 ---
 
@@ -654,8 +704,16 @@ POST /api/admin/quizzes/1/questions
     ↓
 [Lecture]
     ├─ PDF / نص المحاضرة
-    ├─ زر "شرح" (إذا موجود) → يفتح PDF/نص الشرح
-    └─ زر AI → يفتح NotebookLM
+    └─ زر مساعدة في الأسفل ⤵
+         ↓ (يفتح bottom sheet بخيارين)
+    [Bottom Sheet]
+    ├─ "شرح المحاضرة" → يعرض explanation_pdf أو explanation_text
+    └─ "اسأل الذكاء الاصطناعي" → شاشة الشات
+                                    ↓
+                          [AI Chat Screen]
+                          ├─ مربع رسالة + زر إرسال
+                          ├─ عداد "تبقى لك X من 3 أسئلة"
+                          └─ تاريخ الأسئلة والأجوبة
     ↓
 [Quiz]
     ├─ MCQ / TRUE_FALSE / SHORT_ANSWER
@@ -783,6 +841,17 @@ class QuizResult {
   final int totalPoints;
   final int percentage;
   final bool passed;
+}
+
+class ChatUsage {
+  final int used;
+  final int remaining;
+  final int limit;
+}
+
+class ChatAnswer {
+  final String answer;
+  final int remaining;
 }
 ```
 

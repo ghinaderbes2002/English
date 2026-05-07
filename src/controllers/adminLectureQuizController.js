@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
+const { extractText } = require('../utils/pdfExtractor');
 
 // ─── Lectures ─────────────────────────────────────────────────────
 
@@ -44,14 +45,26 @@ exports.createLecture = asyncHandler(async (req, res) => {
   const pdf_url = req.files?.pdf?.[0]?.path || null;
   const explanation_pdf = req.files?.explanation_pdf?.[0]?.path || null;
 
+  // استخراج نص الـ PDF تلقائياً لو الأدمن ما لصق نص يدوي
+  // (نص الأدمن أولوية لأنه قد يكون أدق)
+  let finalText = text_content || null;
+  if (!finalText && pdf_url) {
+    finalText = await extractText(pdf_url);
+  }
+
+  let finalExplanationText = explanation_text || null;
+  if (!finalExplanationText && explanation_pdf) {
+    finalExplanationText = await extractText(explanation_pdf);
+  }
+
   const lecture = await prisma.lecture.create({
     data: {
       subject_id: parseInt(subject_id),
       title,
       content_type,
       category: category || 'LECTURE',
-      text_content: text_content || null,
-      explanation_text: explanation_text || null,
+      text_content: finalText,
+      explanation_text: finalExplanationText,
       pdf_url,
       explanation_pdf,
       notebook_ai_url: notebook_ai_url || null,
@@ -63,8 +76,24 @@ exports.createLecture = asyncHandler(async (req, res) => {
 
 exports.updateLecture = asyncHandler(async (req, res) => {
   const updateData = { ...req.body };
-  if (req.files?.pdf?.[0]) updateData.pdf_url = req.files.pdf[0].path;
-  if (req.files?.explanation_pdf?.[0]) updateData.explanation_pdf = req.files.explanation_pdf[0].path;
+
+  if (req.files?.pdf?.[0]) {
+    updateData.pdf_url = req.files.pdf[0].path;
+    // أعد استخراج النص لو ما عبّى الأدمن text_content يدوياً
+    if (!updateData.text_content) {
+      const extracted = await extractText(req.files.pdf[0].path);
+      if (extracted) updateData.text_content = extracted;
+    }
+  }
+
+  if (req.files?.explanation_pdf?.[0]) {
+    updateData.explanation_pdf = req.files.explanation_pdf[0].path;
+    if (!updateData.explanation_text) {
+      const extracted = await extractText(req.files.explanation_pdf[0].path);
+      if (extracted) updateData.explanation_text = extracted;
+    }
+  }
+
   if (updateData.subject_id) updateData.subject_id = parseInt(updateData.subject_id);
   if (updateData.order_num) updateData.order_num = parseInt(updateData.order_num);
 

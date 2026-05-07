@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# OpenSSL لـ Prisma + netcat لـ wait script
-RUN apk add --no-cache openssl netcat-openbsd
+# OpenSSL لـ Prisma + netcat لـ wait script + tzdata للمنطقة الزمنية
+RUN apk add --no-cache openssl netcat-openbsd tzdata
 
 WORKDIR /app
 
