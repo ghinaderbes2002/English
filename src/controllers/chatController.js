@@ -38,6 +38,15 @@ const loadLectureWithAccessCheck = async (userId, lectureId) => {
   return { lecture };
 };
 
+// GET /api/student/chat/usage  ← حصة اليوم الإجمالية
+exports.getDailyUsage = asyncHandler(async (req, res) => {
+  const used = await getDailyTotal(req.user.id);
+  res.json({
+    success: true,
+    data: { used, remaining: Math.max(0, QUESTION_LIMIT - used), limit: QUESTION_LIMIT },
+  });
+});
+
 // GET /api/student/lectures/:lectureId/chat/usage
 exports.getUsage = asyncHandler(async (req, res) => {
   const userId = req.user.id;

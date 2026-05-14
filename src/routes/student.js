@@ -20,6 +20,7 @@ router.get('/subjects/:subjectId/quizzes', student.getSubjectQuizzes);
 router.get('/lectures/:lectureId', student.getLecture);
 
 // شات AI للمحاضرة
+router.get('/chat/usage', chat.getDailyUsage);
 router.get('/lectures/:lectureId/chat/usage', chat.getUsage);
 router.post('/lectures/:lectureId/chat', chat.askQuestion);
 router.get('/quizzes/:quizId', quiz.getQuiz);
