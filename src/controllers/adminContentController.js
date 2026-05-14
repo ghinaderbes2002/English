@@ -68,6 +68,44 @@ exports.deleteYear = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Year deleted' });
 });
 
+// ─── Semesters ───────────────────────────────────────────────────
+
+exports.getSemesters = asyncHandler(async (req, res) => {
+  const yearId = req.params.yearId ? parseInt(req.params.yearId) : undefined;
+  const semesters = await prisma.semester.findMany({
+    where: yearId ? { year_id: yearId } : undefined,
+    orderBy: { order_num: 'asc' },
+    include: { year: { select: { id: true, name: true } } },
+  });
+  res.json({ success: true, data: semesters });
+});
+
+exports.createSemester = asyncHandler(async (req, res) => {
+  const { name, order_num, year_id } = req.body;
+  if (!year_id) return res.status(400).json({ success: false, message: 'year_id مطلوب' });
+  const semester = await prisma.semester.create({
+    data: { name, order_num: parseInt(order_num) || 0, year_id: parseInt(year_id) },
+  });
+  res.status(201).json({ success: true, data: semester });
+});
+
+exports.updateSemester = asyncHandler(async (req, res) => {
+  const { name, order_num } = req.body;
+  const data = {};
+  if (name !== undefined) data.name = name;
+  if (order_num !== undefined) data.order_num = parseInt(order_num);
+  const semester = await prisma.semester.update({
+    where: { id: parseInt(req.params.id) },
+    data,
+  });
+  res.json({ success: true, data: semester });
+});
+
+exports.deleteSemester = asyncHandler(async (req, res) => {
+  await prisma.semester.delete({ where: { id: parseInt(req.params.id) } });
+  res.json({ success: true, message: 'تم حذف الفصل' });
+});
+
 // ─── Subjects ─────────────────────────────────────────────────────
 
 exports.getSubjects = asyncHandler(async (req, res) => {

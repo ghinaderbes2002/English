@@ -32,6 +32,13 @@ router.post('/years', contentCtrl.createYear);
 router.patch('/years/:id', contentCtrl.updateYear);
 router.delete('/years/:id', contentCtrl.deleteYear);
 
+// Semesters
+router.get('/years/:yearId/semesters', contentCtrl.getSemesters);
+router.get('/semesters', contentCtrl.getSemesters);
+router.post('/semesters', contentCtrl.createSemester);
+router.patch('/semesters/:id', contentCtrl.updateSemester);
+router.delete('/semesters/:id', contentCtrl.deleteSemester);
+
 // Subjects
 router.get('/subjects', contentCtrl.getSubjects);
 router.post('/subjects', upload.single('cover_image'), contentCtrl.createSubject);
@@ -47,10 +54,12 @@ router.delete('/lectures/:id', lectureQuizCtrl.deleteLecture);
 
 // Quizzes
 router.get('/lectures/:lectureId/quizzes', lectureQuizCtrl.getQuizzesByLecture);
+router.get('/quizzes/:id', lectureQuizCtrl.getQuiz);
 router.post('/quizzes', lectureQuizCtrl.createQuiz);
 router.patch('/quizzes/:id', lectureQuizCtrl.updateQuiz);
 router.delete('/quizzes/:id', lectureQuizCtrl.deleteQuiz);
 router.post('/quizzes/:quizId/questions', lectureQuizCtrl.addQuestion);
+router.patch('/questions/:id', lectureQuizCtrl.updateQuestion);
 router.delete('/questions/:id', lectureQuizCtrl.deleteQuestion);
 
 module.exports = router;

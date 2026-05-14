@@ -111,6 +111,20 @@ exports.deleteLecture = asyncHandler(async (req, res) => {
 
 // ─── Quizzes ──────────────────────────────────────────────────────
 
+exports.getQuiz = asyncHandler(async (req, res) => {
+  const quiz = await prisma.quiz.findUnique({
+    where: { id: parseInt(req.params.id) },
+    include: {
+      questions: {
+        orderBy: { order_num: 'asc' },
+        include: { options: true },
+      },
+    },
+  });
+  if (!quiz) return res.status(404).json({ success: false, message: 'الكويز غير موجود' });
+  res.json({ success: true, data: quiz });
+});
+
 exports.createQuiz = asyncHandler(async (req, res) => {
   const { lecture_id, title, description } = req.body;
   const quiz = await prisma.quiz.create({
@@ -153,6 +167,20 @@ exports.addQuestion = asyncHandler(async (req, res) => {
     include: { options: true },
   });
   res.status(201).json({ success: true, data: question });
+});
+
+exports.updateQuestion = asyncHandler(async (req, res) => {
+  const { question_text, points, explanation } = req.body;
+  const data = {};
+  if (question_text !== undefined) data.question_text = question_text;
+  if (points !== undefined) data.points = parseInt(points);
+  if (explanation !== undefined) data.explanation = explanation;
+  const question = await prisma.quizQuestion.update({
+    where: { id: parseInt(req.params.id) },
+    data,
+    include: { options: true },
+  });
+  res.json({ success: true, data: question });
 });
 
 exports.deleteQuestion = asyncHandler(async (req, res) => {
