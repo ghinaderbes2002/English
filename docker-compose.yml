@@ -40,7 +40,7 @@ services:
       ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD}
       RUN_SEED: ${RUN_SEED:-false}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      CHAT_LIMIT_PER_LECTURE: ${CHAT_LIMIT_PER_LECTURE:-3}
+      CHAT_LIMIT_PER_DAY: ${CHAT_LIMIT_PER_DAY:-8}
       TZ: ${TZ:-Asia/Damascus}
     ports:
       - "${APP_PORT:-3000}:3000"
