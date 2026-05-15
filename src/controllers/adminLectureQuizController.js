@@ -126,6 +126,7 @@ exports.reextractTexts = asyncHandler(async (req, res) => {
 
   let updated = 0;
   const errors = [];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   for (const lecture of lectures) {
     try {
@@ -150,6 +151,8 @@ exports.reextractTexts = asyncHandler(async (req, res) => {
     } catch (e) {
       errors.push({ id: lecture.id, title: lecture.title, reason: e.message });
     }
+
+    await sleep(4000); // 4 ثواني بين كل محاضرة لتجنب rate limit
   }
 
   res.json({ success: true, total: lectures.length, updated, failed: errors.length, errors });
