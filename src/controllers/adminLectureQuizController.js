@@ -152,7 +152,7 @@ exports.reextractTexts = asyncHandler(async (req, res) => {
       errors.push({ id: lecture.id, title: lecture.title, reason: e.message });
     }
 
-    await sleep(4000); // 4 ثواني بين كل محاضرة لتجنب rate limit
+    await sleep(8000); // 8 ثواني بين كل محاضرة لتجنب rate limit
   }
 
   res.json({ success: true, total: lectures.length, updated, failed: errors.length, errors });
