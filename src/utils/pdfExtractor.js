@@ -1,8 +1,8 @@
 const fs = require('fs');
-const path = require('path');
-const pdfParse = require('pdf-parse');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { GoogleAIFileManager } = require('@google/generative-ai/server');
+
+const pdfParseModule = require('pdf-parse');
+const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
 
 const MAX_CHARS = 30000;
 
@@ -13,10 +13,11 @@ exports.extractText = async (filePath) => {
     const result = await pdfParse(buffer);
     const text = (result.text || '').trim();
     if (text.length > 50) {
+      console.log('[pdfExtractor] pdf-parse نجح، طول النص:', text.length);
       return text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : text;
     }
   } catch (err) {
-    console.warn(`[pdfExtractor] pdf-parse فشل:`, err.message);
+    console.warn('[pdfExtractor] pdf-parse فشل:', err.message);
   }
 
   // المحاولة الثانية: Gemini Vision (للـ PDFs الممسوحة/scanned)
@@ -30,16 +31,10 @@ const extractWithGeminiVision = async (filePath) => {
     return null;
   }
 
-  let uploadedFileName = null;
   try {
-    console.log('[pdfExtractor] جاري رفع الـ PDF إلى Gemini Vision...');
-    const fileManager = new GoogleAIFileManager(apiKey);
-
-    const uploadResult = await fileManager.uploadFile(filePath, {
-      mimeType: 'application/pdf',
-      displayName: path.basename(filePath),
-    });
-    uploadedFileName = uploadResult.file.name;
+    console.log('[pdfExtractor] جاري استخراج النص عبر Gemini Vision...');
+    const buffer = fs.readFileSync(filePath);
+    const base64Data = buffer.toString('base64');
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
@@ -47,7 +42,7 @@ const extractWithGeminiVision = async (filePath) => {
     });
 
     const result = await model.generateContent([
-      { fileData: { mimeType: 'application/pdf', fileUri: uploadResult.file.uri } },
+      { inlineData: { mimeType: 'application/pdf', data: base64Data } },
       'استخرج جميع النصوص من هذا الملف. أعد النص فقط كما هو بشكل منظم، بدون أي تعليق أو مقدمة.',
     ]);
 
@@ -55,15 +50,7 @@ const extractWithGeminiVision = async (filePath) => {
     console.log('[pdfExtractor] Gemini Vision نجح، طول النص:', text?.length || 0);
     return text ? text.slice(0, MAX_CHARS) : null;
   } catch (err) {
-    console.warn(`[pdfExtractor] Gemini Vision فشل:`, err.message, err.stack);
+    console.warn('[pdfExtractor] Gemini Vision فشل:', err.message);
     return null;
-  } finally {
-    // حذف الملف من Gemini بعد الاستخدام
-    if (uploadedFileName) {
-      try {
-        const fileManager = new GoogleAIFileManager(apiKey);
-        await fileManager.deleteFile(uploadedFileName);
-      } catch {}
-    }
   }
 };
