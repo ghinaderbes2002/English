@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
-const { GoogleGenerativeAI, GoogleAIFileManager } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleAIFileManager } = require('@google/generative-ai/server');
 
 const MAX_CHARS = 30000;
 
@@ -24,10 +25,14 @@ exports.extractText = async (filePath) => {
 
 const extractWithGeminiVision = async (filePath) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.warn('[pdfExtractor] GEMINI_API_KEY غير موجود');
+    return null;
+  }
 
   let uploadedFileName = null;
   try {
+    console.log('[pdfExtractor] جاري رفع الـ PDF إلى Gemini Vision...');
     const fileManager = new GoogleAIFileManager(apiKey);
 
     const uploadResult = await fileManager.uploadFile(filePath, {
@@ -47,9 +52,10 @@ const extractWithGeminiVision = async (filePath) => {
     ]);
 
     const text = result?.response?.text?.()?.trim();
+    console.log('[pdfExtractor] Gemini Vision نجح، طول النص:', text?.length || 0);
     return text ? text.slice(0, MAX_CHARS) : null;
   } catch (err) {
-    console.warn(`[pdfExtractor] Gemini Vision فشل:`, err.message);
+    console.warn(`[pdfExtractor] Gemini Vision فشل:`, err.message, err.stack);
     return null;
   } finally {
     // حذف الملف من Gemini بعد الاستخدام
