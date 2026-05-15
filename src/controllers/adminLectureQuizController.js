@@ -109,6 +109,52 @@ exports.deleteLecture = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Lecture deleted' });
 });
 
+// POST /admin/maintenance/reextract-texts
+// يعيد استخراج النص لكل المحاضرات يلي text_content فارغ عندها
+exports.reextractTexts = asyncHandler(async (req, res) => {
+  const lectures = await prisma.lecture.findMany({
+    where: {
+      text_content: null,
+      pdf_url: { not: null },
+    },
+    select: { id: true, title: true, pdf_url: true, explanation_pdf: true },
+  });
+
+  if (!lectures.length) {
+    return res.json({ success: true, message: 'كل المحاضرات عندها نص بالفعل', updated: 0 });
+  }
+
+  let updated = 0;
+  const errors = [];
+
+  for (const lecture of lectures) {
+    try {
+      const text = await extractText(lecture.pdf_url);
+      let explanationText = null;
+      if (lecture.explanation_pdf) {
+        explanationText = await extractText(lecture.explanation_pdf);
+      }
+
+      if (text || explanationText) {
+        await prisma.lecture.update({
+          where: { id: lecture.id },
+          data: {
+            ...(text && { text_content: text }),
+            ...(explanationText && { explanation_text: explanationText }),
+          },
+        });
+        updated++;
+      } else {
+        errors.push({ id: lecture.id, title: lecture.title, reason: 'فشل الاستخراج' });
+      }
+    } catch (e) {
+      errors.push({ id: lecture.id, title: lecture.title, reason: e.message });
+    }
+  }
+
+  res.json({ success: true, total: lectures.length, updated, failed: errors.length, errors });
+});
+
 // ─── Quizzes ──────────────────────────────────────────────────────
 
 exports.getQuiz = asyncHandler(async (req, res) => {

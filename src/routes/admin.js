@@ -52,6 +52,9 @@ router.post('/lectures', uploadLecture, lectureQuizCtrl.createLecture);
 router.patch('/lectures/:id', uploadLecture, lectureQuizCtrl.updateLecture);
 router.delete('/lectures/:id', lectureQuizCtrl.deleteLecture);
 
+// Maintenance
+router.post('/maintenance/reextract-texts', lectureQuizCtrl.reextractTexts);
+
 // Quizzes
 router.get('/lectures/:lectureId/quizzes', lectureQuizCtrl.getQuizzesByLecture);
 router.get('/quizzes/:id', lectureQuizCtrl.getQuiz);
