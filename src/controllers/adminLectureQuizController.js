@@ -44,6 +44,7 @@ exports.createLecture = asyncHandler(async (req, res) => {
 
   const pdf_url = req.files?.pdf?.[0]?.path || null;
   const explanation_pdf = req.files?.explanation_pdf?.[0]?.path || null;
+  const audio_url = req.files?.audio?.[0]?.path || null;
 
   // استخراج نص الـ PDF تلقائياً لو الأدمن ما لصق نص يدوي
   // (نص الأدمن أولوية لأنه قد يكون أدق)
@@ -66,6 +67,7 @@ exports.createLecture = asyncHandler(async (req, res) => {
       text_content: finalText,
       explanation_text: finalExplanationText,
       pdf_url,
+      audio_url,
       explanation_pdf,
       notebook_ai_url: notebook_ai_url || null,
       order_num: parseInt(order_num),
@@ -84,6 +86,10 @@ exports.updateLecture = asyncHandler(async (req, res) => {
       const extracted = await extractText(req.files.pdf[0].path);
       if (extracted) updateData.text_content = extracted;
     }
+  }
+
+  if (req.files?.audio?.[0]) {
+    updateData.audio_url = req.files.audio[0].path;
   }
 
   if (req.files?.explanation_pdf?.[0]) {

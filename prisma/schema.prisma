@@ -109,6 +109,7 @@ model Lecture {
   content_type    ContentType
   category          LectureCategory @default(LECTURE)
   pdf_url           String?
+  audio_url         String?
   text_content      String?
   explanation_pdf   String?
   explanation_text  String?

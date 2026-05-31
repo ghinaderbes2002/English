@@ -15,7 +15,7 @@ RUN npm ci --omit=dev && npx prisma generate
 COPY . .
 
 # مجلدات الرفع (تتم عبر volume بالـ runtime)
-RUN mkdir -p uploads/pdfs uploads/images
+RUN mkdir -p uploads/pdfs uploads/images uploads/audio
 
 # script لانتظار DB ثم تشغيل migrations ثم السيرفر
 COPY docker-entrypoint.sh /usr/local/bin/

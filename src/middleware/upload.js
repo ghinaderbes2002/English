@@ -3,8 +3,11 @@ const path = require('path');
 
 const PDF_FIELDS = new Set(['pdf', 'explanation_pdf']);
 const IMAGE_FIELDS = new Set(['cover_image']);
+const AUDIO_FIELDS = new Set(['audio']);
+
 const PDF_EXTS = new Set(['.pdf']);
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
+const AUDIO_EXTS = new Set(['.mp3', '.m4a', '.wav', '.ogg', '.aac', '.webm', '.opus']);
 
 const isPdfFile = (file) => {
   const ext = path.extname(file.originalname).toLowerCase();
@@ -16,10 +19,16 @@ const isImageFile = (file) => {
   return IMAGE_EXTS.has(ext) || file.mimetype.startsWith('image/');
 };
 
+const isAudioFile = (file) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  return AUDIO_EXTS.has(ext) || file.mimetype.startsWith('audio/');
+};
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dest = isPdfFile(file) ? './uploads/pdfs' : './uploads/images';
-    cb(null, dest);
+    if (isPdfFile(file)) return cb(null, './uploads/pdfs');
+    if (isAudioFile(file)) return cb(null, './uploads/audio');
+    cb(null, './uploads/images');
   },
   filename: (req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -28,7 +37,6 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // تحقق حسب اسم الحقل: pdf و explanation_pdf لازم PDF فقط، cover_image صورة فقط
   if (PDF_FIELDS.has(file.fieldname)) {
     if (isPdfFile(file)) return cb(null, true);
     return cb(new Error(`الحقل "${file.fieldname}" يجب أن يكون ملف PDF`), false);
@@ -39,8 +47,12 @@ const fileFilter = (req, file, cb) => {
     return cb(new Error(`الحقل "${file.fieldname}" يجب أن يكون صورة (jpg/png/webp)`), false);
   }
 
-  // أي حقل ثاني: اقبل PDF أو صورة
-  if (isPdfFile(file) || isImageFile(file)) return cb(null, true);
+  if (AUDIO_FIELDS.has(file.fieldname)) {
+    if (isAudioFile(file)) return cb(null, true);
+    return cb(new Error(`الحقل "audio" يجب أن يكون ملف صوتي (mp3/m4a/wav/ogg)`), false);
+  }
+
+  if (isPdfFile(file) || isImageFile(file) || isAudioFile(file)) return cb(null, true);
   return cb(new Error(`نوع الملف غير مدعوم: ${file.originalname}`), false);
 };
 
@@ -50,10 +62,10 @@ const upload = multer({
   limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 52428800 },
 });
 
-// لرفع محاضرة + شرحها بنفس الوقت
 const uploadLecture = upload.fields([
   { name: 'pdf', maxCount: 1 },
   { name: 'explanation_pdf', maxCount: 1 },
+  { name: 'audio', maxCount: 1 },
 ]);
 
 module.exports = upload;
