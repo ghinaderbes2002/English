@@ -19,6 +19,10 @@ router.get('/subjects/:subjectId/quizzes', student.getSubjectQuizzes);
 // المحاضرة والكويز
 router.get('/lectures/:lectureId', student.getLecture);
 
+// أسئلة المحاضرة (اختيار من متعدد لأسئلة الدورات / الأوراق الذهبية) — تصحيح فوري
+router.get('/lectures/:lectureId/questions', student.getLectureQuestions);
+router.post('/lectures/:lectureId/questions/submit', student.submitLectureQuestions);
+
 // شات AI للمحاضرة
 router.get('/chat/usage', chat.getDailyUsage);
 router.get('/lectures/:lectureId/chat/usage', chat.getUsage);

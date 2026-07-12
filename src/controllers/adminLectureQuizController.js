@@ -242,3 +242,69 @@ exports.deleteQuestion = asyncHandler(async (req, res) => {
   await prisma.quizQuestion.delete({ where: { id: parseInt(req.params.id) } });
   res.json({ success: true, message: 'Question deleted' });
 });
+
+// ─── Lecture Questions (اختيار من متعدد لأسئلة الدورات / الأوراق الذهبية) ──
+// مربوطة مباشرة بالمحاضرة، منفصلة كلياً عن الكويزات
+
+exports.getLectureQuestions = asyncHandler(async (req, res) => {
+  const lectureId = parseInt(req.params.lectureId);
+  const questions = await prisma.lectureQuestion.findMany({
+    where: { lecture_id: lectureId },
+    orderBy: { order_num: 'asc' },
+    include: { options: true },
+  });
+  res.json({ success: true, data: questions });
+});
+
+exports.addLectureQuestion = asyncHandler(async (req, res) => {
+  const { question_text, question_type, explanation, points, order_num, options } = req.body;
+  const lectureId = parseInt(req.params.lectureId);
+
+  const question = await prisma.lectureQuestion.create({
+    data: {
+      lecture_id: lectureId,
+      question_text,
+      question_type: question_type || 'MCQ',
+      explanation,
+      points: parseInt(points) || 1,
+      order_num: parseInt(order_num),
+      options: options?.length
+        ? { create: options.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct })) }
+        : undefined,
+    },
+    include: { options: true },
+  });
+  res.status(201).json({ success: true, data: question });
+});
+
+exports.updateLectureQuestion = asyncHandler(async (req, res) => {
+  const { question_text, question_type, points, explanation, order_num, options } = req.body;
+  const id = parseInt(req.params.id);
+
+  const data = {};
+  if (question_text !== undefined) data.question_text = question_text;
+  if (question_type !== undefined) data.question_type = question_type;
+  if (points !== undefined) data.points = parseInt(points);
+  if (explanation !== undefined) data.explanation = explanation;
+  if (order_num !== undefined) data.order_num = parseInt(order_num);
+
+  // لو أرسل الأدمن options، نستبدل القديمة بالجديدة كلياً
+  if (Array.isArray(options)) {
+    data.options = {
+      deleteMany: {},
+      create: options.map((o) => ({ option_text: o.option_text, is_correct: o.is_correct })),
+    };
+  }
+
+  const question = await prisma.lectureQuestion.update({
+    where: { id },
+    data,
+    include: { options: true },
+  });
+  res.json({ success: true, data: question });
+});
+
+exports.deleteLectureQuestion = asyncHandler(async (req, res) => {
+  await prisma.lectureQuestion.delete({ where: { id: parseInt(req.params.id) } });
+  res.json({ success: true, message: 'Lecture question deleted' });
+});

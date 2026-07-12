@@ -118,6 +118,7 @@ model Lecture {
 
   subject    Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
   quizzes    Quiz[]
+  questions  LectureQuestion[]
   chat_usage LectureChatUsage[]
 
   @@map("lectures")
@@ -162,6 +163,34 @@ model QuizOption {
   selected_answers QuizAnswer[]
 
   @@map("quiz_options")
+}
+
+// أسئلة اختيار من متعدد مربوطة مباشرة بالمحاضرة (أسئلة دورات / أوراق ذهبية)
+// منفصلة كلياً عن الكويزات — تصحيح فوري بدون حفظ محاولات
+model LectureQuestion {
+  id            Int          @id @default(autoincrement())
+  lecture_id    Int
+  question_text String
+  question_type QuestionType @default(MCQ)
+  explanation   String?
+  points        Int          @default(1)
+  order_num     Int
+
+  lecture Lecture                 @relation(fields: [lecture_id], references: [id], onDelete: Cascade)
+  options LectureQuestionOption[]
+
+  @@map("lecture_questions")
+}
+
+model LectureQuestionOption {
+  id          Int     @id @default(autoincrement())
+  question_id Int
+  option_text String
+  is_correct  Boolean @default(false)
+
+  question LectureQuestion @relation(fields: [question_id], references: [id], onDelete: Cascade)
+
+  @@map("lecture_question_options")
 }
 
 model UserSubjectAccess {

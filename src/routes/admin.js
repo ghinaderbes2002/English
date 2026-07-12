@@ -65,4 +65,10 @@ router.post('/quizzes/:quizId/questions', lectureQuizCtrl.addQuestion);
 router.patch('/questions/:id', lectureQuizCtrl.updateQuestion);
 router.delete('/questions/:id', lectureQuizCtrl.deleteQuestion);
 
+// Lecture Questions (اختيار من متعدد لأسئلة الدورات / الأوراق الذهبية)
+router.get('/lectures/:lectureId/questions', lectureQuizCtrl.getLectureQuestions);
+router.post('/lectures/:lectureId/questions', lectureQuizCtrl.addLectureQuestion);
+router.patch('/lecture-questions/:id', lectureQuizCtrl.updateLectureQuestion);
+router.delete('/lecture-questions/:id', lectureQuizCtrl.deleteLectureQuestion);
+
 module.exports = router;
