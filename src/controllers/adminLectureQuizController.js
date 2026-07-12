@@ -243,8 +243,8 @@ exports.deleteQuestion = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Question deleted' });
 });
 
-// ─── Lecture Questions (اختيار من متعدد لأسئلة الدورات / الأوراق الذهبية) ──
-// مربوطة مباشرة بالمحاضرة، منفصلة كلياً عن الكويزات
+// ─── Lecture Questions (اختيار من متعدد لعنصر محتوى نوعه MCQ) ──
+// مربوطة بعنصر المحتوى (المحاضرة) نفسو، منفصلة كلياً عن الكويزات
 
 exports.getLectureQuestions = asyncHandler(async (req, res) => {
   const lectureId = parseInt(req.params.lectureId);

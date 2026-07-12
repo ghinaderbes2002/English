@@ -159,10 +159,10 @@ exports.getSubjectQuizzes = asyncHandler(async (req, res) => {
   res.json({ success: true, data: quizzes });
 });
 
-// ─── أسئلة المحاضرة (اختيار من متعدد لأسئلة الدورات / الأوراق الذهبية) ──
-// منفصلة عن الكويزات، تصحيح فوري بدون حفظ محاولات
+// ─── أسئلة عنصر المحتوى (اختيار من متعدد لمحتوى نوعه MCQ) ──
+// مربوطة بعنصر المحتوى (المحاضرة)، منفصلة عن الكويزات، تصحيح فوري بدون حفظ محاولات
 
-// تحقق من صلاحية الطالب على المادة يلي تبعها هالمحاضرة، وترجّع المحاضرة
+// تحقق من صلاحية الطالب على المادة يلي تبعها هالمحتوى، وترجّع عنصر المحتوى
 const getLectureWithAccess = async (userId, lectureId) => {
   const lecture = await prisma.lecture.findUnique({
     where: { id: lectureId },

@@ -65,7 +65,7 @@ router.post('/quizzes/:quizId/questions', lectureQuizCtrl.addQuestion);
 router.patch('/questions/:id', lectureQuizCtrl.updateQuestion);
 router.delete('/questions/:id', lectureQuizCtrl.deleteQuestion);
 
-// Lecture Questions (اختيار من متعدد لأسئلة الدورات / الأوراق الذهبية)
+// Lecture Questions (اختيار من متعدد لعنصر محتوى نوعه MCQ)
 router.get('/lectures/:lectureId/questions', lectureQuizCtrl.getLectureQuestions);
 router.post('/lectures/:lectureId/questions', lectureQuizCtrl.addLectureQuestion);
 router.patch('/lecture-questions/:id', lectureQuizCtrl.updateLectureQuestion);

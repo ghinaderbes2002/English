@@ -16,6 +16,7 @@ enum ContentType {
   PDF
   TEXT
   BOTH
+  MCQ
 }
 
 enum LectureCategory {
@@ -165,8 +166,9 @@ model QuizOption {
   @@map("quiz_options")
 }
 
-// أسئلة اختيار من متعدد مربوطة مباشرة بالمحاضرة (أسئلة دورات / أوراق ذهبية)
-// منفصلة كلياً عن الكويزات — تصحيح فوري بدون حفظ محاولات
+// أسئلة اختيار من متعدد مربوطة بعنصر محتوى (محاضرة) نوعه MCQ
+// ضمن أي قسم (أسئلة دورات / أوراق ذهبية...)، منفصلة كلياً عن الكويزات
+// تصحيح فوري بدون حفظ محاولات
 model LectureQuestion {
   id            Int          @id @default(autoincrement())
   lecture_id    Int
