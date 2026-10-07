@@ -68,5 +68,16 @@ const uploadLecture = upload.fields([
   { name: 'audio', maxCount: 1 },
 ]);
 
+// ملفات استخراج الأسئلة بالذكاء الاصطناعي: صور / PDF بالذاكرة فقط (ما بتنحفظ عالسيرفر)
+const uploadQuestionFiles = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (isPdfFile(file) || isImageFile(file)) return cb(null, true);
+    cb(new Error(`نوع الملف غير مدعوم: ${file.originalname} (المسموح صور أو PDF)`), false);
+  },
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 52428800 },
+}).array('files', 10);
+
 module.exports = upload;
 module.exports.uploadLecture = uploadLecture;
+module.exports.uploadQuestionFiles = uploadQuestionFiles;

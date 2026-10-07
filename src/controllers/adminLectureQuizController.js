@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const { extractText } = require('../utils/pdfExtractor');
+const { extractQuestionsFromFiles } = require('../services/aiService');
 
 // ─── Lectures ─────────────────────────────────────────────────────
 
@@ -222,6 +223,101 @@ exports.addQuestion = asyncHandler(async (req, res) => {
     include: { options: true },
   });
   res.status(201).json({ success: true, data: question });
+});
+
+// POST /admin/quizzes/extract-questions   (multipart: files = صور أو PDF)
+// بيرجّع الأسئلة المستخرجة للمراجعة فقط — الحفظ عبر /quizzes/:quizId/questions/bulk
+const MAX_EXTRACT_BYTES = 18 * 1024 * 1024; // حد Gemini للطلب الواحد ~20MB
+
+exports.extractQuestions = asyncHandler(async (req, res) => {
+  const files = req.files || [];
+  if (!files.length) {
+    return res.status(400).json({ success: false, message: 'ارفع صورة أو ملف PDF واحد على الأقل (الحقل files)' });
+  }
+
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+  if (totalSize > MAX_EXTRACT_BYTES) {
+    return res.status(400).json({ success: false, message: 'حجم الملفات كبير جداً (الحد الأقصى 18 MB للطلب الواحد)' });
+  }
+
+  let questions;
+  try {
+    questions = await extractQuestionsFromFiles(
+      files.map((f) => ({
+        buffer: f.buffer,
+        mimetype: f.originalname.toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimetype,
+      })),
+    );
+  } catch (e) {
+    console.error('AI Error:', e.message);
+    return res.status(502).json({ success: false, message: 'تعذّر استخراج الأسئلة بالذكاء الاصطناعي حالياً' });
+  }
+
+  if (!questions.length) {
+    return res.status(422).json({ success: false, message: 'لم يتم العثور على أسئلة في الملف' });
+  }
+
+  res.json({ success: true, data: questions });
+});
+
+const QUESTION_TYPES = ['MCQ', 'TRUE_FALSE', 'SHORT_ANSWER'];
+
+// POST /admin/quizzes/:quizId/questions/bulk   { questions: [...] }
+exports.addQuestionsBulk = asyncHandler(async (req, res) => {
+  const quizId = parseInt(req.params.quizId);
+  const { questions } = req.body;
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ success: false, message: 'questions مطلوبة' });
+  }
+
+  for (const [i, q] of questions.entries()) {
+    const label = `السؤال رقم ${i + 1}`;
+    if (!q.question_text || !String(q.question_text).trim()) {
+      return res.status(400).json({ success: false, message: `${label}: نص السؤال مطلوب` });
+    }
+    if (!QUESTION_TYPES.includes(q.question_type)) {
+      return res.status(400).json({ success: false, message: `${label}: question_type غير صالح` });
+    }
+    if (q.question_type !== 'SHORT_ANSWER') {
+      const options = Array.isArray(q.options) ? q.options : [];
+      if (options.length < 2) {
+        return res.status(400).json({ success: false, message: `${label}: يجب إضافة خيارين على الأقل` });
+      }
+      if (options.filter((o) => o.is_correct === true).length !== 1) {
+        return res.status(400).json({ success: false, message: `${label}: يجب تحديد جواب صحيح واحد` });
+      }
+    }
+  }
+
+  const quiz = await prisma.quiz.findUnique({ where: { id: quizId }, select: { id: true } });
+  if (!quiz) return res.status(404).json({ success: false, message: 'الكويز غير موجود' });
+
+  // الأسئلة الجديدة بتنضاف بعد آخر سؤال موجود بالكويز
+  const last = await prisma.quizQuestion.aggregate({ where: { quiz_id: quizId }, _max: { order_num: true } });
+  const startOrder = last._max.order_num || 0;
+
+  const created = await prisma.$transaction(
+    questions.map((q, i) =>
+      prisma.quizQuestion.create({
+        data: {
+          quiz_id: quizId,
+          question_text: String(q.question_text).trim(),
+          question_type: q.question_type,
+          explanation: q.explanation || null,
+          points: parseInt(q.points) || 1,
+          order_num: startOrder + i + 1,
+          options:
+            q.question_type !== 'SHORT_ANSWER'
+              ? { create: q.options.map((o) => ({ option_text: String(o.option_text), is_correct: o.is_correct === true })) }
+              : undefined,
+        },
+        include: { options: true },
+      }),
+    ),
+  );
+
+  res.status(201).json({ success: true, data: created });
 });
 
 exports.updateQuestion = asyncHandler(async (req, res) => {

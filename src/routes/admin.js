@@ -4,7 +4,7 @@ const userCtrl = require('../controllers/adminUserController');
 const contentCtrl = require('../controllers/adminContentController');
 const lectureQuizCtrl = require('../controllers/adminLectureQuizController');
 const upload = require('../middleware/upload');
-const { uploadLecture } = require('../middleware/upload');
+const { uploadLecture, uploadQuestionFiles } = require('../middleware/upload');
 
 router.use(authenticate, requireAdmin);
 
@@ -62,6 +62,9 @@ router.post('/quizzes', lectureQuizCtrl.createQuiz);
 router.patch('/quizzes/:id', lectureQuizCtrl.updateQuiz);
 router.delete('/quizzes/:id', lectureQuizCtrl.deleteQuiz);
 router.post('/quizzes/:quizId/questions', lectureQuizCtrl.addQuestion);
+// استخراج أسئلة من صور / PDF بالذكاء الاصطناعي (للمراجعة، بدون حفظ) ثم حفظها دفعة واحدة
+router.post('/quizzes/extract-questions', uploadQuestionFiles, lectureQuizCtrl.extractQuestions);
+router.post('/quizzes/:quizId/questions/bulk', lectureQuizCtrl.addQuestionsBulk);
 router.patch('/questions/:id', lectureQuizCtrl.updateQuestion);
 router.delete('/questions/:id', lectureQuizCtrl.deleteQuestion);
 
