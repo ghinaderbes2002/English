@@ -225,14 +225,21 @@ exports.addQuestion = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: question });
 });
 
-// POST /admin/quizzes/extract-questions   (multipart: files = صور أو PDF)
+// POST /admin/quizzes/extract-questions   (multipart: files = صور أو PDF، text = نص ملصوق)
 // بيرجّع الأسئلة المستخرجة للمراجعة فقط — الحفظ عبر /quizzes/:quizId/questions/bulk
 const MAX_EXTRACT_BYTES = 18 * 1024 * 1024; // حد Gemini للطلب الواحد ~20MB
+const MAX_EXTRACT_TEXT_CHARS = 20000;
 
 exports.extractQuestions = asyncHandler(async (req, res) => {
   const files = req.files || [];
-  if (!files.length) {
-    return res.status(400).json({ success: false, message: 'ارفع صورة أو ملف PDF واحد على الأقل (الحقل files)' });
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+
+  if (!files.length && !text) {
+    return res.status(400).json({ success: false, message: 'ارفع صورة أو ملف PDF (الحقل files) أو الصق نص الأسئلة (الحقل text)' });
+  }
+
+  if (text.length > MAX_EXTRACT_TEXT_CHARS) {
+    return res.status(400).json({ success: false, message: `النص طويل جداً (الحد الأقصى ${MAX_EXTRACT_TEXT_CHARS} حرف)` });
   }
 
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);
@@ -247,6 +254,7 @@ exports.extractQuestions = asyncHandler(async (req, res) => {
         buffer: f.buffer,
         mimetype: f.originalname.toLowerCase().endsWith('.pdf') ? 'application/pdf' : f.mimetype,
       })),
+      text,
     );
   } catch (e) {
     console.error('AI Error:', e.message);
@@ -254,7 +262,7 @@ exports.extractQuestions = asyncHandler(async (req, res) => {
   }
 
   if (!questions.length) {
-    return res.status(422).json({ success: false, message: 'لم يتم العثور على أسئلة في الملف' });
+    return res.status(422).json({ success: false, message: 'لم يتم العثور على أسئلة' });
   }
 
   res.json({ success: true, data: questions });

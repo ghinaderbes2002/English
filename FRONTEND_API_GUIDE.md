@@ -633,7 +633,10 @@ POST /api/admin/quizzes/extract-questions
 ```
 | الحقل | النوع | ملاحظات |
 |-------|-------|---------|
-| `files` | file (متعدد) | صور (jpg/png/webp) أو PDF — لحد 10 ملفات، المجموع ≤ 18MB |
+| `files` | file (متعدد) | اختياري — صور (jpg/png/webp) أو PDF، لحد 10 ملفات، المجموع ≤ 18MB |
+| `text` | text | اختياري — نص أسئلة ملصوق، لحد **20000 حرف** |
+
+> لازم واحد منهم على الأقل (`files` أو `text`). إذا إجو التنين، بترجع الأسئلة كلها بمصفوفة وحدة: أسئلة النص أول وبعدها الملفات، و `order_num` متسلسل عالكل.
 
 ```json
 {
@@ -657,7 +660,7 @@ POST /api/admin/quizzes/extract-questions
 
 > `answer_source`: `FILE` = الجواب كان محدد بالملف، `AI` = المودل هو اللي اختار الجواب. **ميّز أسئلة `AI` بلون تحذير** ليراجعها الأدمن قبل الحفظ.
 > الطلب ممكن ياخد 10–40 ثانية — اعرض loading.
-> أخطاء: `400` ما في ملفات / نوع غير مدعوم / حجم كبير، `422` ما في أسئلة بالملف، `502` فشل الـ AI.
+> أخطاء: `400` لا ملفات ولا نص / نوع غير مدعوم / حجم كبير / نص أطول من 20000 حرف، `422` ما في أسئلة، `502` فشل الـ AI.
 
 الخطوة 2 — الحفظ دفعة واحدة (JSON) بعد مراجعة الأدمن:
 ```
@@ -816,10 +819,11 @@ export const admin = {
   addQuestion: (quizId, data) => api(`/admin/quizzes/${quizId}/questions`, { method: 'POST', body: data }),
   updateQuestion: (id, data) => api(`/admin/questions/${id}`, { method: 'PATCH', body: data }),
   deleteQuestion: (id) => api(`/admin/questions/${id}`, { method: 'DELETE' }),
-  // files: File[] (صور / PDF) → أسئلة للمراجعة، بدون حفظ
-  extractQuestions: (files) => {
+  // files: File[] (صور / PDF) و/أو text (نص ملصوق) → أسئلة للمراجعة، بدون حفظ
+  extractQuestions: (files = [], text = '') => {
     const formData = new FormData();
     files.forEach((f) => formData.append('files', f));
+    if (text.trim()) formData.append('text', text);
     return api('/admin/quizzes/extract-questions', { method: 'POST', formData });
   },
   addQuestionsBulk: (quizId, questions) =>
