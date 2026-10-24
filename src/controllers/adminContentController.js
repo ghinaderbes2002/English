@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
+const { groupSubjectsByYear, subjectSemesterInclude, subjectOrderBy } = require('../utils/groupSubjects');
 
 // بالفورم (multipart) القيم بتوصل نصوص، فمنقبل true أو "true"
 const toBool = (v) => v === true || v === 'true';
@@ -121,11 +122,13 @@ exports.deleteSemester = asyncHandler(async (req, res) => {
 
 // ─── Subjects ─────────────────────────────────────────────────────
 
+// ?grouped=true → مقسّمة حسب السنة ثم الفصل
 exports.getSubjects = asyncHandler(async (req, res) => {
   const subjects = await prisma.subject.findMany({
-    include: { semester: { include: { year: true } } },
+    orderBy: subjectOrderBy,
+    include: { semester: subjectSemesterInclude },
   });
-  res.json({ success: true, data: subjects });
+  res.json({ success: true, data: req.query.grouped === 'true' ? groupSubjectsByYear(subjects) : subjects });
 });
 
 exports.createSubject = asyncHandler(async (req, res) => {

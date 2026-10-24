@@ -1,15 +1,17 @@
 const prisma = require('../config/prisma');
 
-// صلاحية الطالب على مادة: لازم تكون مفعّلة إلو، وما تكون مقفلة عند الكل من الأدمن
+// المواد مفتوحة لكل الطلاب، إلا إذا الأدمن قفلها عند الكل (is_locked)
+// أو لغى تفعيلها لهالطالب (UserSubjectBlock)
 // بترجّع null إذا مسموح، أو { status, message, code } إذا لأ
 exports.getSubjectAccessError = async (userId, subjectId, deniedMessage = 'Access denied') => {
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: { user_id_subject_id: { user_id: userId, subject_id: subjectId } },
-    include: { subject: { select: { is_locked: true } } },
+  const subject = await prisma.subject.findUnique({
+    where: { id: subjectId },
+    select: { is_locked: true, student_blocks: { where: { user_id: userId }, select: { id: true } } },
   });
 
-  if (!access) return { status: 403, code: 'NO_ACCESS', message: deniedMessage };
-  if (access.subject.is_locked) return { status: 403, code: 'SUBJECT_LOCKED', message: 'المادة مقفلة حالياً' };
+  if (!subject) return { status: 404, message: 'المادة غير موجودة' };
+  if (subject.is_locked) return { status: 403, code: 'SUBJECT_LOCKED', message: 'المادة مقفلة حالياً' };
+  if (subject.student_blocks.length) return { status: 403, code: 'NO_ACCESS', message: deniedMessage };
   return null;
 };
 

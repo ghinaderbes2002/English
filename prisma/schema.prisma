@@ -47,6 +47,7 @@ model User {
   updated_at      DateTime  @updatedAt
 
   subject_access UserSubjectAccess[]
+  subject_blocks UserSubjectBlock[]
   quiz_attempts  QuizAttempt[]
   chat_usage     LectureChatUsage[]
 
@@ -96,11 +97,12 @@ model Subject {
   description     String?
   cover_image     String?
   notebook_ai_url String?
-  is_locked       Boolean @default(false) // قفل عام: المادة مقفلة عند كل الطلاب حتى لو مفعّلة إلهم
+  is_locked       Boolean @default(false) // قفل عام: المادة مقفلة عند كل الطلاب
 
   semester       Semester           @relation(fields: [semester_id], references: [id], onDelete: Cascade)
   lectures       Lecture[]
   student_access UserSubjectAccess[]
+  student_blocks UserSubjectBlock[]
 
   @@map("subjects")
 }
@@ -197,6 +199,8 @@ model LectureQuestionOption {
   @@map("lecture_question_options")
 }
 
+// قديم: كان يحدد المواد المفعّلة لكل طالب. ما عاد مستعمل بالصلاحيات
+// (المواد صارت مفتوحة للكل)، منتركه لنحافظ على البيانات القديمة
 model UserSubjectAccess {
   id         Int       @id @default(autoincrement())
   user_id    String
@@ -209,6 +213,20 @@ model UserSubjectAccess {
 
   @@unique([user_id, subject_id])
   @@map("user_subject_access")
+}
+
+// المواد مفتوحة لكل الطلاب افتراضياً — هون المواد يلي الأدمن لغى تفعيلها لطالب معيّن
+model UserSubjectBlock {
+  id         Int      @id @default(autoincrement())
+  user_id    String
+  subject_id Int
+  created_at DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, subject_id])
+  @@map("user_subject_blocks")
 }
 
 model QuizAttempt {

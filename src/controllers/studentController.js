@@ -2,7 +2,7 @@ const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const { getSubjectAccessError, sendAccessError } = require('../utils/subjectAccess');
 
-// الأقسام والسنوات والفصول بتطلع لكل الطلاب، والمواد بس المفعّلة للطالب
+// كل الأقسام والسنوات والفصول والمواد بتطلع لكل الطلاب
 exports.getDepartments = asyncHandler(async (req, res) => {
   const departments = await prisma.department.findMany({
     orderBy: { order_num: 'asc' },
@@ -36,16 +36,15 @@ exports.getSemesters = asyncHandler(async (req, res) => {
   res.json({ success: true, data: semesters });
 });
 
-// المواد المفعّلة للطالب بالفصل — المقفولة من الأدمن بتطلع مع is_locked: true
+// كل مواد الفصل — المقفولة عند الكل بتطلع مع is_locked: true،
+// ويلي لغى الأدمن تفعيلها لهالطالب بتطلع مع has_access: false
 exports.getSubjects = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const semesterId = parseInt(req.params.semesterId);
 
   const subjects = await prisma.subject.findMany({
-    where: {
-      semester_id: semesterId,
-      student_access: { some: { user_id: userId } },
-    },
+    where: { semester_id: semesterId },
+    orderBy: { id: 'asc' },
     select: {
       id: true,
       name: true,
@@ -54,12 +53,17 @@ exports.getSubjects = asyncHandler(async (req, res) => {
       notebook_ai_url: true,
       is_locked: true,
       _count: { select: { lectures: true } },
+      student_blocks: { where: { user_id: userId }, select: { id: true } },
     },
   });
 
   res.json({
     success: true,
-    data: subjects.map(({ _count, ...s }) => ({ ...s, lectures_count: _count.lectures })),
+    data: subjects.map(({ _count, student_blocks, ...s }) => ({
+      ...s,
+      has_access: student_blocks.length === 0,
+      lectures_count: _count.lectures,
+    })),
   });
 });
 

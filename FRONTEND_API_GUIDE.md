@@ -50,7 +50,7 @@ Authorization: Bearer <token>
 |------|--------|-----------------|
 | 400 | بيانات ناقصة / ملف غير صالح | اعرض `message` |
 | 401 | لا يوجد token / token غير صالح / الحساب موقوف | امسح التوكن ووجّه لصفحة الدخول |
-| 403 | لا صلاحية (مادة غير مفعّلة، اشتراك منتهي، جهاز آخر، حد الشات) | اعرض `message` |
+| 403 | لا صلاحية (مادة غير مفعّلة، مادة مقفلة، اشتراك منتهي، جهاز آخر، حد الشات) | اعرض `message` |
 | 404 | العنصر غير موجود | صفحة 404 |
 | 409 | مكرر (رقم جامعي مسجّل، طالب مفعّل مسبقاً) | اعرض `message` |
 | 429 | محاولات دخول كثيرة (10 كل 15 دقيقة) | اعرض `message` |
@@ -174,7 +174,18 @@ GET /api/auth/me          🔒 (طالب أو أدمن)
 
 ## 3. واجهة الطالب
 
-كلها 🔒 بتوكن **طالب**. الطالب بيشوف بس الأقسام/السنوات/الفصول/المواد اللي فيها مواد مفعّلة إلو.
+كلها 🔒 بتوكن **طالب**.
+
+- **كل الأقسام والسنوات والفصول والمواد بتطلع لكل الطلاب، والمواد مفتوحة للكل افتراضياً.** الأدمن بيقدر يقفل مادة عند الكل (`is_locked`) أو يلغي تفعيلها لطالب معيّن (`has_access: false`).
+- **قوائم فاضية:** أي قائمة ممكن ترجع `data: []` (فصل بدون مواد، مادة بدون محاضرات، تبويب فاضي). اعرض رسالة متل "لسا ما في محتوى" بدل loading.
+- **أخطاء الصلاحية على المادة** (`403`) فيها حقل `code`:
+
+| code | المعنى | شو يعرض الفرونت |
+|------|--------|-----------------|
+| `NO_ACCESS` | الأدمن لاغي تفعيل المادة لهالطالب | "المادة غير مفعّلة، تواصل مع الإدارة" |
+| `SUBJECT_LOCKED` | الأدمن قافل المادة عند الكل | "المادة مقفلة حالياً" |
+
+هدول بيرجعوا من كل طلبات المادة: المحاضرات، الكويزات، تفاصيل المحاضرة، أسئلة MCQ، والشات.
 
 ### تدفق الصفحات
 
@@ -220,10 +231,18 @@ GET /api/student/semesters/:semesterId/subjects
 {
   "success": true,
   "data": [
-    { "id": 1, "name": "Grammar", "description": "...", "cover_image": "uploads/images/xxx.jpg", "notebook_ai_url": null }
+    {
+      "id": 1, "name": "Grammar", "description": "...", "cover_image": "uploads/images/xxx.jpg",
+      "notebook_ai_url": null, "is_locked": false, "has_access": true, "lectures_count": 12
+    }
   ]
 }
 ```
+
+- `cover_image`: صورة غلاف المادة (أو `null`)، اعرض أيقونة افتراضية إذا ما في.
+- `is_locked: true`: المادة مقفلة من الأدمن عند الكل، اعرضها بقفل وما تفتحها.
+- `has_access: false`: الأدمن لاغي تفعيلها لهالطالب، اعرضها بقفل وما تفتحها.
+- `lectures_count: 0`: المادة لسا ما فيها محتوى، اعرض "لسا ما في محاضرات" مباشرة. الرقم هو مجموع كل التبويبات، فتبويب لحاله ممكن يكون فاضي.
 
 ### 3.5 محتوى مادة (حسب التبويب)
 
@@ -242,7 +261,7 @@ GET /api/student/subjects/:subjectId/lectures?category=LECTURE
 }
 ```
 
-`403` إذا المادة مش مفعّلة للطالب.
+`403` مع `code` (`NO_ACCESS` أو `SUBJECT_LOCKED`)، `404` إذا المادة مو موجودة. إذا التبويب فاضي بيرجع `data: []`.
 
 ### 3.6 كل كويزات مادة
 
@@ -441,8 +460,9 @@ POST /api/student/lectures/:lectureId/chat
 | GET | `/api/admin/students/:id` | تفاصيل طالب + مواده |
 | PATCH | `/api/admin/students/:id` | إيقاف / تفعيل / تمديد / reset جهاز |
 | DELETE | `/api/admin/students/:id` | حذف طالب |
-| POST | `/api/admin/students/:id/grant-subjects` | إعطاء مواد |
-| DELETE | `/api/admin/students/:id/subjects/:subjectId` | سحب مادة |
+| POST | `/api/admin/students/:id/grant-subjects` | إعادة تفعيل مواد للطالب |
+| GET | `/api/admin/students/:id/subjects` | كل المواد مع حالتها لهالطالب، `?grouped=true` مقسّمة حسب السنة |
+| DELETE | `/api/admin/students/:id/subjects/:subjectId` | إلغاء تفعيل مادة للطالب |
 
 **شكل الطالب بالقوائم:**
 ```json
@@ -459,7 +479,7 @@ POST /api/admin/students/activate
 ```json
 { "university_id": "2023001", "expires_at": "2026-12-31", "subject_ids": [1, 2, 3] }
 ```
-`expires_at` و `subject_ids` اختياريين. أخطاء: `404` غير موجود، `409` مفعّل مسبقاً.
+`expires_at` (انتهاء اشتراك الطالب) و `subject_ids` اختياريين. المواد مفتوحة للطالب كلها افتراضياً، فـ `subject_ids` بس بيرجّع تفعيل مواد كانت ملغاة إلو. أخطاء: `404` غير موجود، `409` مفعّل مسبقاً.
 
 **إنشاء طالب:**
 ```json
@@ -472,12 +492,12 @@ POST /api/admin/students/activate
   "success": true,
   "data": {
     "id": "uuid", "full_name": "...", "university_id": "...", "is_active": true, "...": "...",
-    "subject_access": [
-      { "id": 1, "subject_id": 1, "granted_at": "...", "expires_at": null, "subject": { "id": 1, "name": "Grammar" } }
-    ]
+    "blocked_subjects": [ { "id": 1, "name": "Grammar" } ]
   }
 }
 ```
+
+`blocked_subjects`: المواد اللي الأدمن لاغي تفعيلها لهالطالب (`subject_access` القديم انشال).
 
 **تعديل طالب** (كل الحقول اختيارية):
 ```json
@@ -487,10 +507,25 @@ POST /api/admin/students/activate
 - `expires_at: null` → بدون انتهاء
 - `resetDevice: true` → فك ربط الجهاز (يقدر يدخل من متصفح/جهاز جديد)
 
-**إعطاء مواد:**
+**قائمة فتح / قفل المواد لطالب** (`GET /students/:id/subjects`): كل المواد بالنظام مع حالتها لهالطالب:
 ```json
-{ "subject_ids": [1, 2], "expires_at": null }
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1, "name": "Grammar", "cover_image": null, "is_locked": false,
+      "semester": { "id": 1, "name": "الفصل الأول", "year": { "id": 1, "name": "السنة الأولى", "department": { "id": 1, "name": "..." } } },
+      "has_access": true
+    }
+  ]
+}
 ```
+- `has_access` افتراضياً `true` لكل المواد، وبيصير `false` بس إذا الأدمن لغى تفعيلها لهالطالب.
+- **إلغاء التفعيل:** `DELETE /students/:id/subjects/1`. ما بيعطي خطأ إذا ملغاة أصلاً، و`404` إذا الطالب أو المادة مو موجودين.
+- **إعادة التفعيل:** `POST /students/:id/grant-subjects` مع `{ "subject_ids": [1, 2] }`. `expires_at` ما عاد إلو تأثير هون.
+- `is_locked` هو القفل العام عند كل الطلاب (4.5)، منفصل عن `has_access`.
+- `access_expires_at` انشال.
+- **`?grouped=true`:** نفس المواد بس مقسّمة حسب السنة ثم الفصل، بنفس شكل `GET /admin/subjects?grouped=true` (4.5).
 
 ### 4.2 الأقسام
 
@@ -560,8 +595,32 @@ GET بيرجع كل فصل مع `year: { id, name }`.
 | `description` | text | اختياري |
 | `notebook_ai_url` | text | اختياري |
 | `cover_image` | file | jpg/png/webp/gif |
+| `is_locked` | text | `true` / `false`: قفل المادة عند كل الطلاب (افتراضي `false`) |
+| `remove_cover_image` | text | بالتعديل بس، `true` بيشيل صورة الغلاف |
 
-GET بيرجع كل مادة مع `semester: { ..., year: {...} }`.
+GET بيرجع كل مادة مع `is_locked` و `semester: { id, name, order_num, year: { id, name, order_num, department: { id, name } } }`، مرتبة حسب القسم ثم السنة ثم الفصل.
+
+**مقسّمة حسب السنة:** `GET /api/admin/subjects?grouped=true`
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1, "name": "السنة الأولى", "order_num": 1,
+      "department": { "id": 1, "name": "اللغة الإنجليزية" },
+      "semesters": [
+        {
+          "id": 1, "name": "الفصل الأول", "order_num": 1,
+          "subjects": [ { "id": 1, "name": "Grammar", "cover_image": null, "is_locked": false, "...": "..." } ]
+        }
+      ]
+    }
+  ]
+}
+```
+بتطلع بس السنوات والفصول اللي فيها مواد. أسماء السنوات ممكن تتكرر بين الأقسام، فاعرض اسم القسم جنبها.
+
+**قفل / فتح مادة عند الكل:** `PATCH /api/admin/subjects/:id` مع `{ "is_locked": true }` (JSON أو فورم). المادة المقفلة بتضل تطلع بقائمة الطالب بس ما بتنفتح (`403 SUBJECT_LOCKED`).
 
 ### 4.6 المحاضرات / المحتوى — `multipart/form-data`
 
@@ -788,6 +847,7 @@ export const admin = {
   deleteStudent: (id) => api(`/admin/students/${id}`, { method: 'DELETE' }),
   grantSubjects: (id, subject_ids, expires_at = null) =>
     api(`/admin/students/${id}/grant-subjects`, { method: 'POST', body: { subject_ids, expires_at } }),
+  studentSubjects: (id, grouped = false) => api(`/admin/students/${id}/subjects${grouped ? '?grouped=true' : ''}`),
   revokeSubject: (id, subjectId) => api(`/admin/students/${id}/subjects/${subjectId}`, { method: 'DELETE' }),
 
   // Departments
@@ -812,7 +872,8 @@ export const admin = {
   deleteSemester: (id) => api(`/admin/semesters/${id}`, { method: 'DELETE' }),
 
   // Subjects (FormData)
-  subjects: () => api('/admin/subjects'),
+  subjects: (grouped = false) => api(`/admin/subjects${grouped ? '?grouped=true' : ''}`),
+  setSubjectLocked: (id, is_locked) => api(`/admin/subjects/${id}`, { method: 'PATCH', body: { is_locked } }),
   createSubject: (formData) => api('/admin/subjects', { method: 'POST', formData }),
   updateSubject: (id, formData) => api(`/admin/subjects/${id}`, { method: 'PATCH', formData }),
   deleteSubject: (id) => api(`/admin/subjects/${id}`, { method: 'DELETE' }),
