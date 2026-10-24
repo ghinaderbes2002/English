@@ -16,6 +16,7 @@ router.post('/students', userCtrl.createStudent);
 router.get('/students/:id', userCtrl.getStudent);
 router.patch('/students/:id', userCtrl.updateStudent);
 router.delete('/students/:id', userCtrl.deleteStudent);
+router.get('/students/:id/subjects', userCtrl.getStudentSubjects);
 router.post('/students/:id/grant-subjects', userCtrl.grantSubjects);
 router.delete('/students/:id/subjects/:subjectId', userCtrl.revokeSubject);
 
@@ -28,8 +29,8 @@ router.delete('/departments/:id', contentCtrl.deleteDepartment);
 // Years
 router.get('/departments/:departmentId/years', contentCtrl.getYears);
 router.get('/years', contentCtrl.getYears);
-router.post('/years', contentCtrl.createYear);
-router.patch('/years/:id', contentCtrl.updateYear);
+router.post('/years', upload.single('cover_image'), contentCtrl.createYear);
+router.patch('/years/:id', upload.single('cover_image'), contentCtrl.updateYear);
 router.delete('/years/:id', contentCtrl.deleteYear);
 
 // Semesters

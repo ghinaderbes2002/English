@@ -1,6 +1,9 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 
+// بالفورم (multipart) القيم بتوصل نصوص، فمنقبل true أو "true"
+const toBool = (v) => v === true || v === 'true';
+
 // ─── Departments ──────────────────────────────────────────────────
 
 exports.getDepartments = asyncHandler(async (req, res) => {
@@ -46,19 +49,29 @@ exports.getYears = asyncHandler(async (req, res) => {
   res.json({ success: true, data: years });
 });
 
+// بيقبل JSON أو multipart/form-data (مع صورة cover_image)
 exports.createYear = asyncHandler(async (req, res) => {
   const { name, order_num, department_id } = req.body;
   if (!department_id) return res.status(400).json({ success: false, message: 'department_id مطلوب' });
+  const cover_image = req.file ? req.file.path : undefined;
   const year = await prisma.academicYear.create({
-    data: { name, order_num, department_id: parseInt(department_id) },
+    data: { name, order_num: parseInt(order_num) || 0, department_id: parseInt(department_id), cover_image },
   });
   res.status(201).json({ success: true, data: year });
 });
 
 exports.updateYear = asyncHandler(async (req, res) => {
+  const { name, order_num, department_id, remove_cover_image } = req.body;
+  const data = {};
+  if (name !== undefined) data.name = name;
+  if (order_num !== undefined) data.order_num = parseInt(order_num);
+  if (department_id !== undefined) data.department_id = parseInt(department_id);
+  if (req.file) data.cover_image = req.file.path;
+  else if (toBool(remove_cover_image)) data.cover_image = null;
+
   const year = await prisma.academicYear.update({
     where: { id: parseInt(req.params.id) },
-    data: req.body,
+    data,
   });
   res.json({ success: true, data: year });
 });
@@ -116,23 +129,32 @@ exports.getSubjects = asyncHandler(async (req, res) => {
 });
 
 exports.createSubject = asyncHandler(async (req, res) => {
-  const { semester_id, name, description, notebook_ai_url } = req.body;
+  const { semester_id, name, description, notebook_ai_url, is_locked } = req.body;
   const cover_image = req.file ? req.file.path : undefined;
 
   const subject = await prisma.subject.create({
-    data: { semester_id: parseInt(semester_id), name, description, cover_image, notebook_ai_url },
+    data: {
+      semester_id: parseInt(semester_id), name, description, cover_image, notebook_ai_url,
+      is_locked: toBool(is_locked),
+    },
   });
   res.status(201).json({ success: true, data: subject });
 });
 
 exports.updateSubject = asyncHandler(async (req, res) => {
-  const updateData = { ...req.body };
-  if (req.file) updateData.cover_image = req.file.path;
-  if (updateData.semester_id) updateData.semester_id = parseInt(updateData.semester_id);
+  const { semester_id, name, description, notebook_ai_url, is_locked, remove_cover_image } = req.body;
+  const data = {};
+  if (semester_id !== undefined) data.semester_id = parseInt(semester_id);
+  if (name !== undefined) data.name = name;
+  if (description !== undefined) data.description = description;
+  if (notebook_ai_url !== undefined) data.notebook_ai_url = notebook_ai_url;
+  if (is_locked !== undefined) data.is_locked = toBool(is_locked);
+  if (req.file) data.cover_image = req.file.path;
+  else if (toBool(remove_cover_image)) data.cover_image = null;
 
   const subject = await prisma.subject.update({
     where: { id: parseInt(req.params.id) },
-    data: updateData,
+    data,
   });
   res.json({ success: true, data: subject });
 });

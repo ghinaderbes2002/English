@@ -1,22 +1,10 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
+const { getSubjectAccessError, sendAccessError } = require('../utils/subjectAccess');
 
-const hasAccessFilter = (userId) => ({
-  semesters: {
-    some: {
-      subjects: {
-        some: { student_access: { some: { user_id: userId } } },
-      },
-    },
-  },
-});
-
-// الأقسام المتاحة للطالب (فيها مواد مفعّلة له)
+// الأقسام والسنوات والفصول بتطلع لكل الطلاب، والمواد بس المفعّلة للطالب
 exports.getDepartments = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
-
   const departments = await prisma.department.findMany({
-    where: { years: { some: hasAccessFilter(userId) } },
     orderBy: { order_num: 'asc' },
     select: { id: true, name: true, description: true, order_num: true },
   });
@@ -26,37 +14,29 @@ exports.getDepartments = asyncHandler(async (req, res) => {
 
 // السنوات داخل قسم معين
 exports.getYears = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
   const departmentId = parseInt(req.params.departmentId);
 
   const years = await prisma.academicYear.findMany({
-    where: { department_id: departmentId, ...hasAccessFilter(userId) },
+    where: { department_id: departmentId },
     orderBy: { order_num: 'asc' },
-    select: { id: true, name: true, order_num: true },
+    select: { id: true, name: true, order_num: true, cover_image: true },
   });
 
   res.json({ success: true, data: years });
 });
 
 exports.getSemesters = asyncHandler(async (req, res) => {
-  const userId = req.user.id;
   const yearId = parseInt(req.params.yearId);
 
   const semesters = await prisma.semester.findMany({
-    where: {
-      year_id: yearId,
-      subjects: {
-        some: {
-          student_access: { some: { user_id: userId } },
-        },
-      },
-    },
+    where: { year_id: yearId },
     orderBy: { order_num: 'asc' },
   });
 
   res.json({ success: true, data: semesters });
 });
 
+// المواد المفعّلة للطالب بالفصل — المقفولة من الأدمن بتطلع مع is_locked: true
 exports.getSubjects = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const semesterId = parseInt(req.params.semesterId);
@@ -72,10 +52,15 @@ exports.getSubjects = asyncHandler(async (req, res) => {
       description: true,
       cover_image: true,
       notebook_ai_url: true,
+      is_locked: true,
+      _count: { select: { lectures: true } },
     },
   });
 
-  res.json({ success: true, data: subjects });
+  res.json({
+    success: true,
+    data: subjects.map(({ _count, ...s }) => ({ ...s, lectures_count: _count.lectures })),
+  });
 });
 
 exports.getLectures = asyncHandler(async (req, res) => {
@@ -84,13 +69,8 @@ exports.getLectures = asyncHandler(async (req, res) => {
   // category: LECTURE | EXAM_QUESTIONS | GOLDEN_PAPER | SUMMARY (default: LECTURE)
   const category = req.query.category || 'LECTURE';
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: { user_id_subject_id: { user_id: userId, subject_id: subjectId } },
-  });
-
-  if (!access) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
-  }
+  const accessError = await getSubjectAccessError(userId, subjectId);
+  if (accessError) return sendAccessError(res, accessError);
 
   const lectures = await prisma.lecture.findMany({
     where: { subject_id: subjectId, category },
@@ -124,13 +104,8 @@ exports.getLecture = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Lecture not found' });
   }
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: { user_id_subject_id: { user_id: userId, subject_id: lecture.subject_id } },
-  });
-
-  if (!access) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
-  }
+  const accessError = await getSubjectAccessError(userId, lecture.subject_id);
+  if (accessError) return sendAccessError(res, accessError);
 
   res.json({ success: true, data: lecture });
 });
@@ -139,12 +114,8 @@ exports.getSubjectQuizzes = asyncHandler(async (req, res) => {
   const userId = req.user.id;
   const subjectId = parseInt(req.params.subjectId);
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: { user_id_subject_id: { user_id: userId, subject_id: subjectId } },
-  });
-  if (!access) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
-  }
+  const accessError = await getSubjectAccessError(userId, subjectId);
+  if (accessError) return sendAccessError(res, accessError);
 
   const quizzes = await prisma.quiz.findMany({
     where: { lecture: { subject_id: subjectId } },
@@ -168,12 +139,10 @@ const getLectureWithAccess = async (userId, lectureId) => {
     where: { id: lectureId },
     select: { id: true, subject_id: true },
   });
-  if (!lecture) return { error: 404 };
+  if (!lecture) return { error: { status: 404, message: 'Lecture not found' } };
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: { user_id_subject_id: { user_id: userId, subject_id: lecture.subject_id } },
-  });
-  if (!access) return { error: 403 };
+  const accessError = await getSubjectAccessError(userId, lecture.subject_id);
+  if (accessError) return { error: accessError };
 
   return { lecture };
 };
@@ -183,8 +152,7 @@ exports.getLectureQuestions = asyncHandler(async (req, res) => {
   const lectureId = parseInt(req.params.lectureId);
 
   const { lecture, error } = await getLectureWithAccess(userId, lectureId);
-  if (error === 404) return res.status(404).json({ success: false, message: 'Lecture not found' });
-  if (error === 403) return res.status(403).json({ success: false, message: 'Access denied' });
+  if (error) return sendAccessError(res, error);
 
   const questions = await prisma.lectureQuestion.findMany({
     where: { lecture_id: lecture.id },
@@ -212,8 +180,7 @@ exports.submitLectureQuestions = asyncHandler(async (req, res) => {
   }
 
   const { lecture, error } = await getLectureWithAccess(userId, lectureId);
-  if (error === 404) return res.status(404).json({ success: false, message: 'Lecture not found' });
-  if (error === 403) return res.status(403).json({ success: false, message: 'Access denied' });
+  if (error) return sendAccessError(res, error);
 
   const questions = await prisma.lectureQuestion.findMany({
     where: { lecture_id: lecture.id },

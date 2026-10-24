@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const { askAboutLecture } = require('../services/aiService');
+const { getSubjectAccessError, sendAccessError } = require('../utils/subjectAccess');
 
 const QUESTION_LIMIT = parseInt(process.env.CHAT_LIMIT_PER_DAY || '8', 10);
 
@@ -30,10 +31,8 @@ const loadLectureWithAccessCheck = async (userId, lectureId) => {
   });
   if (!lecture) return { error: { status: 404, message: 'المحاضرة غير موجودة' } };
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: { user_id_subject_id: { user_id: userId, subject_id: lecture.subject_id } },
-  });
-  if (!access) return { error: { status: 403, message: 'لا تملك صلاحية الوصول لهذه المادة' } };
+  const accessError = await getSubjectAccessError(userId, lecture.subject_id, 'لا تملك صلاحية الوصول لهذه المادة');
+  if (accessError) return { error: accessError };
 
   return { lecture };
 };
@@ -53,7 +52,7 @@ exports.getUsage = asyncHandler(async (req, res) => {
   const lectureId = parseInt(req.params.lectureId, 10);
 
   const { lecture, error } = await loadLectureWithAccessCheck(userId, lectureId);
-  if (error) return res.status(error.status).json({ success: false, message: error.message });
+  if (error) return sendAccessError(res, error);
 
   const used = await getDailyTotal(userId);
   res.json({
@@ -76,7 +75,7 @@ exports.askQuestion = asyncHandler(async (req, res) => {
   }
 
   const { lecture, error } = await loadLectureWithAccessCheck(userId, lectureId);
-  if (error) return res.status(error.status).json({ success: false, message: error.message });
+  if (error) return sendAccessError(res, error);
 
   // تحقق من الحد اليومي الإجمالي عبر كل المحاضرات
   const totalUsed = await getDailyTotal(userId);

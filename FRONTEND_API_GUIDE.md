@@ -199,7 +199,7 @@ GET /api/student/departments
 GET /api/student/departments/:departmentId/years
 ```
 ```json
-{ "success": true, "data": [ { "id": 1, "name": "السنة الأولى", "order_num": 1 } ] }
+{ "success": true, "data": [ { "id": 1, "name": "السنة الأولى", "order_num": 1, "cover_image": "uploads/images/xxx.jpg" } ] }
 ```
 
 ### 3.3 فصول سنة
@@ -511,11 +511,24 @@ GET بيرجع كل قسم مع `_count: { years: n }`.
 |--------|----------|------|
 | GET | `/api/admin/years` | — (كل السنوات) |
 | GET | `/api/admin/departments/:departmentId/years` | — |
-| POST | `/api/admin/years` | `{ "department_id": 1, "name": "السنة الأولى", "order_num": 1 }` |
-| PATCH | `/api/admin/years/:id` | `name`, `order_num` |
+| POST | `/api/admin/years` | `department_id`, `name`, `order_num`, `cover_image` (اختياري) |
+| PATCH | `/api/admin/years/:id` | أي حقل من `name`, `order_num`, `department_id`, `cover_image`, `remove_cover_image` |
 | DELETE | `/api/admin/years/:id` | — |
 
-GET بيرجع كل سنة مع `department: { id, name }` و `semesters: [...]`.
+GET بيرجع كل سنة مع `cover_image` و `department: { id, name }` و `semesters: [...]`.
+
+**صورة السنة:** لرفع صورة ابعت الطلب `multipart/form-data` وفيه حقل `cover_image` (jpg/png/webp/gif). بدون صورة بتقدر تضل تبعت JSON عادي.
+- بالـ PATCH: صورة جديدة بتستبدل القديمة، و `remove_cover_image: true` (أو `"true"` بالفورم) بيشيل الصورة.
+- `cover_image` بيرجع مسار نسبي، حوّله لرابط بـ `fileUrl()`.
+
+```js
+const fd = new FormData();
+fd.append('department_id', 1);
+fd.append('name', 'السنة الأولى');
+fd.append('order_num', 1);
+fd.append('cover_image', imageFile);
+await api('/admin/years', { method: 'POST', formData: fd });
+```
 
 ### 4.4 الفصول
 
@@ -785,8 +798,11 @@ export const admin = {
 
   // Years
   years: (departmentId) => api(departmentId ? `/admin/departments/${departmentId}/years` : '/admin/years'),
-  createYear: (data) => api('/admin/years', { method: 'POST', body: data }),
-  updateYear: (id, data) => api(`/admin/years/${id}`, { method: 'PATCH', body: data }),
+  // data: object (JSON) أو FormData (مع cover_image)
+  createYear: (data) =>
+    api('/admin/years', { method: 'POST', ...(data instanceof FormData ? { formData: data } : { body: data }) }),
+  updateYear: (id, data) =>
+    api(`/admin/years/${id}`, { method: 'PATCH', ...(data instanceof FormData ? { formData: data } : { body: data }) }),
   deleteYear: (id) => api(`/admin/years/${id}`, { method: 'DELETE' }),
 
   // Semesters

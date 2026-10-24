@@ -166,11 +166,47 @@ exports.grantSubjects = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'تم تفعيل المواد' });
 });
 
-// سحب مادة من طالب
+// سحب مادة من طالب (لو مو مفعّلة أصلاً ما بيصير خطأ)
 exports.revokeSubject = asyncHandler(async (req, res) => {
   const { id: user_id, subjectId } = req.params;
-  await prisma.userSubjectAccess.delete({
-    where: { user_id_subject_id: { user_id, subject_id: parseInt(subjectId) } },
+  await prisma.userSubjectAccess.deleteMany({
+    where: { user_id, subject_id: parseInt(subjectId) },
   });
   res.json({ success: true, message: 'تم سحب المادة' });
+});
+
+// كل المواد مع حالتها لطالب معيّن — لقائمة فتح / قفل المواد
+exports.getStudentSubjects = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+
+  const student = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!student || student.role !== 'STUDENT') {
+    return res.status(404).json({ success: false, message: 'الطالب غير موجود' });
+  }
+
+  const subjects = await prisma.subject.findMany({
+    orderBy: [{ semester: { year: { order_num: 'asc' } } }, { semester: { order_num: 'asc' } }, { id: 'asc' }],
+    select: {
+      id: true,
+      name: true,
+      cover_image: true,
+      is_locked: true,
+      semester: {
+        select: {
+          id: true, name: true,
+          year: { select: { id: true, name: true, department: { select: { id: true, name: true } } } },
+        },
+      },
+      student_access: { where: { user_id: userId }, select: { granted_at: true, expires_at: true } },
+    },
+  });
+
+  res.json({
+    success: true,
+    data: subjects.map(({ student_access, ...s }) => ({
+      ...s,
+      has_access: student_access.length > 0,
+      access_expires_at: student_access[0]?.expires_at ?? null,
+    })),
+  });
 });

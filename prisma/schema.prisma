@@ -69,6 +69,7 @@ model AcademicYear {
   department_id Int
   name          String
   order_num     Int
+  cover_image   String?
 
   department Department @relation(fields: [department_id], references: [id], onDelete: Cascade)
   semesters  Semester[]
@@ -95,6 +96,7 @@ model Subject {
   description     String?
   cover_image     String?
   notebook_ai_url String?
+  is_locked       Boolean @default(false) // قفل عام: المادة مقفلة عند كل الطلاب حتى لو مفعّلة إلهم
 
   semester       Semester           @relation(fields: [semester_id], references: [id], onDelete: Cascade)
   lectures       Lecture[]

@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
+const { getSubjectAccessError, sendAccessError } = require('../utils/subjectAccess');
 
 exports.getQuiz = asyncHandler(async (req, res) => {
   const userId = req.user.id;
@@ -24,18 +25,8 @@ exports.getQuiz = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Quiz not found' });
   }
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: {
-      user_id_subject_id: {
-        user_id: userId,
-        subject_id: quiz.lecture.subject_id,
-      },
-    },
-  });
-
-  if (!access) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
-  }
+  const accessError = await getSubjectAccessError(userId, quiz.lecture.subject_id);
+  if (accessError) return sendAccessError(res, accessError);
 
   res.json({ success: true, data: quiz });
 });
@@ -61,15 +52,8 @@ exports.submitQuiz = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Quiz not found' });
   }
 
-  const access = await prisma.userSubjectAccess.findUnique({
-    where: {
-      user_id_subject_id: { user_id: userId, subject_id: quiz.lecture.subject_id },
-    },
-  });
-
-  if (!access) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
-  }
+  const accessError = await getSubjectAccessError(userId, quiz.lecture.subject_id);
+  if (accessError) return sendAccessError(res, accessError);
 
   let score = 0;
   let totalPoints = 0;
