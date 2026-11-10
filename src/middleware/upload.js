@@ -56,28 +56,40 @@ const fileFilter = (req, file, cb) => {
   return cb(new Error(`نوع الملف غير مدعوم: ${file.originalname}`), false);
 };
 
+// حد حجم الملف الواحد (PDF / صوت / صور) — افتراضي 200 MB
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE) || 200 * 1024 * 1024;
+// ملفات استخراج الأسئلة بتنحفظ بالذاكرة وبتنبعت لـ Gemini (حد الطلب ~20MB)، فحدها أصغر
+const MAX_QUESTION_FILE_SIZE = 18 * 1024 * 1024;
+
+// بيسجّل الحد على الطلب ليقدر الـ errorHandler يذكره برسالة الـ 413
+const withSizeLimit = (limit, middleware) => (req, res, next) => {
+  req.uploadSizeLimit = limit;
+  middleware(req, res, next);
+};
+
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 52428800 },
+  limits: { fileSize: MAX_FILE_SIZE },
 });
 
-const uploadLecture = upload.fields([
+const uploadLecture = withSizeLimit(MAX_FILE_SIZE, upload.fields([
   { name: 'pdf', maxCount: 1 },
   { name: 'explanation_pdf', maxCount: 1 },
   { name: 'audio', maxCount: 1 },
-]);
+]));
 
 // ملفات استخراج الأسئلة بالذكاء الاصطناعي: صور / PDF بالذاكرة فقط (ما بتنحفظ عالسيرفر)
-const uploadQuestionFiles = multer({
+const uploadQuestionFiles = withSizeLimit(MAX_QUESTION_FILE_SIZE, multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
     if (isPdfFile(file) || isImageFile(file)) return cb(null, true);
     cb(new Error(`نوع الملف غير مدعوم: ${file.originalname} (المسموح صور أو PDF)`), false);
   },
-  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 52428800 },
-}).array('files', 10);
+  limits: { fileSize: MAX_QUESTION_FILE_SIZE },
+}).array('files', 10));
 
 module.exports = upload;
 module.exports.uploadLecture = uploadLecture;
 module.exports.uploadQuestionFiles = uploadQuestionFiles;
+module.exports.MAX_FILE_SIZE = MAX_FILE_SIZE;
